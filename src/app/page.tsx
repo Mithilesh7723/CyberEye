@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { analyzeLogs, type AnalysisOutput } from '@/app/actions';
+import { analyzeLogs, type AnalysisOutput, askFollowUp } from '@/app/actions';
 import Header from '@/components/header';
 import LogAnalyzer from '@/components/log-analyzer';
 import AnalysisResults from '@/components/analysis-results';
@@ -11,6 +11,7 @@ import { Loader } from 'lucide-react';
 export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisOutput | null>(null);
+  const [logData, setLogData] = useState('');
   const { toast } = useToast();
 
   const handleAnalysis = async (formData: { logData: string; featureList: string }) => {
@@ -25,6 +26,7 @@ export default function Home() {
 
     setIsLoading(true);
     setAnalysisResult(null);
+    setLogData(formData.logData); // Save log data for follow-ups
 
     try {
       const result = await analyzeLogs(formData);
@@ -47,9 +49,23 @@ export default function Home() {
       setIsLoading(false);
     }
   };
+  
+  const handleFollowUp = async (question: string) => {
+    const result = await askFollowUp({ question, logData });
+    if (result.error) {
+        toast({
+            variant: 'destructive',
+            title: 'Follow-up Failed',
+            description: result.error,
+        });
+        return null;
+    }
+    return result.data?.answer || "Sorry, I couldn't find an answer.";
+  };
 
   const handleReset = () => {
     setAnalysisResult(null);
+    setLogData('');
   };
 
   return (
@@ -66,7 +82,7 @@ export default function Home() {
           )}
 
           {!isLoading && analysisResult && (
-            <AnalysisResults result={analysisResult} onReset={handleReset} />
+            <AnalysisResults result={analysisResult} onReset={handleReset} onFollowUp={handleFollowUp} />
           )}
 
           {!isLoading && !analysisResult && (
