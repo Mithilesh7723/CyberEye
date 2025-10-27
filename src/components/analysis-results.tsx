@@ -1,15 +1,16 @@
 'use client';
 
 import { useState } from 'react';
-import type { AnalysisOutput } from '@/app/actions';
+import type { AnalysisOutput, AnalysisType } from '@/app/actions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Archive, ClipboardList, Download, RefreshCw, ShieldAlert, Send, Bot, User, Loader } from 'lucide-react';
+import { Archive, ClipboardList, Download, RefreshCw, ShieldAlert, Send, Bot, User, Loader, Phone } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface AnalysisResultsProps {
   result: AnalysisOutput;
+  type: AnalysisType;
   onReset: () => void;
   onFollowUp: (question: string) => Promise<string | null>;
 }
@@ -19,7 +20,66 @@ type Message = {
     text: string;
 };
 
-export default function AnalysisResults({ result, onReset, onFollowUp }: AnalysisResultsProps) {
+const ResultCard = ({ icon, title, content }: { icon: React.ReactNode; title: string; content: string }) => (
+    <Card className="animate-in fade-in-50 duration-700">
+      <CardHeader>
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            {icon}
+          </div>
+          <CardTitle className="font-headline text-xl">{title}</CardTitle>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="whitespace-pre-wrap rounded-md bg-card p-4 text-sm font-code text-card-foreground border">
+          {content}
+        </div>
+      </CardContent>
+    </Card>
+);
+
+const LogAnalysisResults = ({ result }: { result: Extract<AnalysisOutput, { anomalousPatterns: any }> }) => (
+    <>
+        <ResultCard
+            icon={<ShieldAlert className="h-5 w-5" />}
+            title="Anomalous Patterns"
+            content={result.anomalousPatterns}
+        />
+        <ResultCard
+            icon={<ClipboardList className="h-5 w-5" />}
+            title="Recommended Actions"
+            content={result.recommendedActions}
+        />
+        <ResultCard
+            icon={<Archive className="h-5 w-5" />}
+            title="Evidence to Preserve"
+            content={result.evidenceToPreserve}
+        />
+    </>
+);
+
+const CdrAnalysisResults = ({ result }: { result: Extract<AnalysisOutput, { correlationSummary: any }> }) => (
+    <>
+        <ResultCard
+            icon={<Phone className="h-5 w-5" />}
+            title="Correlation Summary"
+            content={result.correlationSummary}
+        />
+        <ResultCard
+            icon={<ClipboardList className="h-5 w-5" />}
+            title="Detailed Analysis"
+            content={result.detailedAnalysis}
+        />
+        <ResultCard
+            icon={<Archive className="h-5 w-5" />}
+            title="Key Data Points"
+            content={result.keyDataPoints}
+        />
+    </>
+);
+
+
+export default function AnalysisResults({ result, type, onReset, onFollowUp }: AnalysisResultsProps) {
   const [followUpQuestion, setFollowUpQuestion] = useState('');
   const [isReplying, setIsReplying] = useState(false);
   const [chatHistory, setChatHistory] = useState<Message[]>([]);
@@ -55,24 +115,14 @@ export default function AnalysisResults({ result, onReset, onFollowUp }: Analysi
     setIsReplying(false);
   };
 
+  const isCdrResult = (res: AnalysisOutput): res is Extract<AnalysisOutput, { correlationSummary: any }> => {
+    return type === 'cdr' && 'correlationSummary' in res;
+  }
+  
+  const isLogResult = (res: AnalysisOutput): res is Extract<AnalysisOutput, { anomalousPatterns: any }> => {
+    return type === 'logs' && 'anomalousPatterns' in res;
+  }
 
-  const ResultCard = ({ icon, title, content }: { icon: React.ReactNode; title: string; content: string }) => (
-    <Card className="animate-in fade-in-50 duration-700">
-      <CardHeader>
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            {icon}
-          </div>
-          <CardTitle className="font-headline text-xl">{title}</CardTitle>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="whitespace-pre-wrap rounded-md bg-card p-4 text-sm font-code text-card-foreground border">
-          {content}
-        </div>
-      </CardContent>
-    </Card>
-  );
 
   return (
     <div className="space-y-8">
@@ -81,21 +131,8 @@ export default function AnalysisResults({ result, onReset, onFollowUp }: Analysi
         <p className="text-muted-foreground">The AI has identified the following items for review.</p>
       </div>
       <div className="grid gap-6 md:grid-cols-1">
-        <ResultCard
-          icon={<ShieldAlert className="h-5 w-5" />}
-          title="Anomalous Patterns"
-          content={result.anomalousPatterns}
-        />
-        <ResultCard
-          icon={<ClipboardList className="h-5 w-5" />}
-          title="Recommended Actions"
-          content={result.recommendedActions}
-        />
-        <ResultCard
-          icon={<Archive className="h-5 w-5" />}
-          title="Evidence to Preserve"
-          content={result.evidenceToPreserve}
-        />
+        {isCdrResult(result) && <CdrAnalysisResults result={result} />}
+        {isLogResult(result) && <LogAnalysisResults result={result} />}
       </div>
 
       <Card className="animate-in fade-in-50 duration-900">
@@ -128,7 +165,7 @@ export default function AnalysisResults({ result, onReset, onFollowUp }: Analysi
                     <Input
                         value={followUpQuestion}
                         onChange={(e) => setFollowUpQuestion(e.target.value)}
-                        placeholder="e.g., Which IP address was most common?"
+                        placeholder="e.g., Which number made the most calls?"
                         disabled={isReplying}
                     />
                     <Button type="submit" disabled={isReplying || !followUpQuestion.trim()}>
@@ -143,7 +180,7 @@ export default function AnalysisResults({ result, onReset, onFollowUp }: Analysi
       <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
         <Button onClick={onReset} variant="outline">
           <RefreshCw />
-          Analyze New Log
+          Analyze New Data
         </Button>
         <Button onClick={handleExport}>
           <Download />

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { analyzeLogs, type AnalysisOutput, askFollowUp } from '@/app/actions';
+import { analyze, type AnalysisOutput, askFollowUp, AnalysisType } from '@/app/actions';
 import Header from '@/components/header';
 import LogAnalyzer from '@/components/log-analyzer';
 import AnalysisResults from '@/components/analysis-results';
@@ -11,25 +11,27 @@ import { Loader } from 'lucide-react';
 export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisOutput | null>(null);
-  const [logData, setLogData] = useState('');
+  const [analysisType, setAnalysisType] = useState<AnalysisType | null>(null);
+  const [originalContent, setOriginalContent] = useState('');
   const { toast } = useToast();
 
-  const handleAnalysis = async (formData: { logData: string; featureList: string }) => {
-    if (!formData.logData.trim()) {
+  const handleAnalysis = async (formData: { content: string; featureList?: string; type: AnalysisType }) => {
+    if (!formData.content.trim()) {
       toast({
         variant: 'destructive',
         title: 'Input Error',
-        description: 'Log data cannot be empty.',
+        description: 'Input data cannot be empty.',
       });
       return;
     }
 
     setIsLoading(true);
     setAnalysisResult(null);
-    setLogData(formData.logData); // Save log data for follow-ups
+    setOriginalContent(formData.content); // Save content for follow-ups
+    setAnalysisType(formData.type);
 
     try {
-      const result = await analyzeLogs(formData);
+      const result = await analyze(formData);
       if (result.error) {
         toast({
           variant: 'destructive',
@@ -51,7 +53,7 @@ export default function Home() {
   };
   
   const handleFollowUp = async (question: string) => {
-    const result = await askFollowUp({ question, logData });
+    const result = await askFollowUp({ question, logData: originalContent });
     if (result.error) {
         toast({
             variant: 'destructive',
@@ -65,7 +67,8 @@ export default function Home() {
 
   const handleReset = () => {
     setAnalysisResult(null);
-    setLogData('');
+    setOriginalContent('');
+    setAnalysisType(null);
   };
 
   return (
@@ -76,13 +79,13 @@ export default function Home() {
           {isLoading && (
             <div className="flex flex-col items-center justify-center gap-4 text-center p-8">
               <Loader className="h-12 w-12 animate-spin text-primary" />
-              <h2 className="text-2xl font-headline font-semibold">Analyzing Logs...</h2>
-              <p className="text-muted-foreground">The AI is searching for anomalous patterns. Please wait.</p>
+              <h2 className="text-2xl font-headline font-semibold">Analyzing Data...</h2>
+              <p className="text-muted-foreground">The AI is correlating patterns and searching for anomalies. Please wait.</p>
             </div>
           )}
 
-          {!isLoading && analysisResult && (
-            <AnalysisResults result={analysisResult} onReset={handleReset} onFollowUp={handleFollowUp} />
+          {!isLoading && analysisResult && analysisType && (
+            <AnalysisResults result={analysisResult} type={analysisType} onReset={handleReset} onFollowUp={handleFollowUp} />
           )}
 
           {!isLoading && !analysisResult && (
