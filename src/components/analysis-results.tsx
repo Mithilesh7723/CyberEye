@@ -20,6 +20,20 @@ type Message = {
     text: string;
 };
 
+// A simple markdown renderer
+const SimpleMarkdown = ({ text }: { text: string }) => {
+    const formattedText = text
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') // Bold
+        .replace(/\*(.*?)\*/g, '<em>$1</em>')           // Italics
+        .replace(/^- (.*$)/gm, '<li class="list-disc ml-4">$1</li>')  // Bullets
+        .replace(/(\r\n|\n|\r)/g, '<br>');
+
+    const listFormattedText = `<ul class="space-y-1">${formattedText.replace(/<br>/g, '')}</ul>`;
+
+    return <div dangerouslySetInnerHTML={{ __html: text.includes('- ') ? listFormattedText : formattedText }} />;
+};
+
+
 const ResultCard = ({ icon, title, content }: { icon: React.ReactNode; title: string; content: string }) => (
     <Card className="animate-in fade-in-50 duration-700">
       <CardHeader>
@@ -31,8 +45,8 @@ const ResultCard = ({ icon, title, content }: { icon: React.ReactNode; title: st
         </div>
       </CardHeader>
       <CardContent>
-        <div className="whitespace-pre-wrap rounded-md bg-card p-4 text-sm font-code text-card-foreground border">
-          {content}
+        <div className="prose prose-sm prose-invert max-w-none text-card-foreground">
+          <SimpleMarkdown text={content} />
         </div>
       </CardContent>
     </Card>
